@@ -1,56 +1,110 @@
-from typing import Optional
-from fastapi import FastAPI, HTTPException
 from datetime import datetime
+from fastapi import FastAPI
 from pydantic import BaseModel
-from redis import Redis
-from supabase_py import create_client, Client
+from typing import List, Optional
+import supabase
 
-app = FastAPI()
-redis_conn = Redis()
+url = "https://ufbqvjyfkiqdctvdvzsr.supabase.co"
+key = "your-project-key"
 
-class Post(BaseModel):
-    id: int
+supabase_client = supabase.create_client(url, key)
+
+class BlogPost(BaseModel):
+    """
+    A Pydantic model representing a blog post.
+
+    Attributes:
+        id (int, optional): The ID of the blog post.
+        author (str): The author of the blog post.
+        title (str): The title of the blog post.
+        content (str): The content of the blog post.
+        created_at (datetime): The date and time the blog post was created.
+        updated_at (datetime): The date and time the blog post was last updated.
+        posted_at (datetime): The date and time the blog post was posted.
+        scheduled_at (datetime): The date and time the blog post is scheduled to be posted.
+    """
+    id: Optional[int] = None
+    author: str
     title: str
     content: str
     created_at: datetime
     updated_at: datetime
     posted_at: datetime
-    scheduled_at: Optional[datetime]
+    scheduled_at: datetime
 
-# Initialize Supabase client
-url: str = "https://ufbqvjyfkiqdctvdvzsr.supabase.co"
-key: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmYnF2anlma2lxZGN0dmR2enNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTIyOTgzMDAsImV4cCI6MjAyNzg3NDMwMH0.zT8tWhhi3xM-7WysTAAW7fUj-iUIMaQHvjnO13eXgCE"
-supabase: Client = create_client(url, key)
+    class Config:
+        """
+        Pydantic configuration for the BlogPost model.
 
-def create_post(post: Post):
-    data = supabase.table("blog_posts").insert(post.dict(exclude={"id"})).execute()
-    post.id = data.inserted[0]
-    return post
+        Attributes:
+            orm_mode (bool): Whether to enable ORM mode, allowing Pydantic to automatically convert database rows to BlogPost instances.
+        """
+        orm_mode = True
 
-@app.post("/posts/")
-async def create_post_endpoint(post: Post):
-    return create_post(post)
+@app.post("/blog_posts/", response_model=BlogPost)
+async def create_blog_post(blog_post: BlogPost):
+    """
+    Create a new blog post.
 
-@app.get("/posts/{post_id}")
-async def get_post_endpoint(post_id: int):
-    post = supabase.table("blog_posts").select("*").eq("id", post_id).execute().data[0]
-    return post
+    Args:
+        blog_post (BlogPost): The blog post to create.
 
-@app.put("/posts/{post_id}")
-async def update_post_endpoint(post_id: int, post: Post):
-    post_dict = post.dict()
-    post_dict["updated_at"] = datetime.utcnow()
-    supabase.table("blog_posts").update(post_dict).eq("id", post_id).execute()
-    return {"message": "Post updated successfully"}
+    Returns:
+        BlogPost: The created blog post.
+    """
+    result = supabase_client.from("blog_posts").insert(blog_post.dict()).execute()
+    return result.data[0]
 
-@app.get("/posts/")
-async def get_posts_endpoint():
-    posts = supabase.table("blog_posts").select("*").execute().data
-    return posts
+@app.get("/blog_posts/{blog_id}", response_model=BlogPost)
+async def get_blog_post(blog_id: int):
+    """
+    Retrieve a blog post by ID.
 
-@app.delete("/posts/{post_id}")
-async def delete_post_endpoint(post_id: int):
-    post = supabase.table("blog_posts").delete().eq("id", post_id).execute()
-    if post.deleted == 0:
-        raise HTTPException(status_code=404, detail="Post not found")
-    return {"message": "Post deleted successfully"}
+    Args:
+        blog_id (int): The ID of the blog post to retrieve.
+
+    Returns:
+        BlogPost: The retrieved blog post.
+    """
+    result = supabase_client.from("blog_posts").select("*").eq("id", blog_id).execute()
+    return result.data[0]
+
+@app.get("/blog_posts/", response_model=List[BlogPost])
+async def get_all_blog_posts():
+    """
+    Retrieve all blog posts.
+
+    Returns:
+        List[BlogPost]: A list of all blog posts.
+    """
+    result = supabase_client.from("blog_posts").select("*").execute()
+    return result.data
+
+@app.put("/blog_posts/{blog_id}", response_model=BlogPost)
+async def update_blog_post(blog_id: int, blog_post: BlogPost):
+    """
+    Update a blog post by ID.
+
+    Args:
+        blog_id (int): The ID of the blog post to update.
+        blog_post (BlogPost): The updated blog post.
+
+    Returns:
+        BlogPost: The updated blog post.
+    """
+    result = supabase_client.from("blog_posts").update(blog_post.dict()).eq("id", blog_id).execute()
+    return result.data[0]
+
+@app.delete("/blog_posts/{blog_id}")
+async def delete_blog_post(blog_id: int):
+    """
+    Delete a blog post by ID.
+
+    Args:
+        blog_id (int): The ID of the blog post to delete.
+
+    Returns:
+        dict: A dictionary containing a message indicating that the blog post was deleted.
+    """
+    result = supabase_client.from("blog_posts").delete().eq("id", blog_id).execute()
+    return {"message": "Blog post deleted"}
