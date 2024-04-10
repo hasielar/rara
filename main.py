@@ -4,8 +4,8 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 # Initialize Supabase client
-url: str = "https://kbplgyruwwcqzurimbtg.supabase.co"
-key: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImticGxneXJ1d3djcXp1cmltYnRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTE1OTEwMjksImV4cCI6MjAyNzE2NzAyOX0.byS4R7u5YKG_0ud4pUU60mKVM1KIrE7qpTxmYgVNY_M"
+url: str = "https://ufbqvjyfkiqdctvdvzsr.supabase.co"
+key: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmYnF2anlma2lxZGN0dmR2enNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTIyOTgzMDAsImV4cCI6MjAyNzg3NDMwMH0.zT8tWhhi3xM-7WysTAAW7fUj-iUIMaQHvjnO13eXgCE"
 supabase: Client = create_client(url, key)
 
 # Initialize FastAPI app
