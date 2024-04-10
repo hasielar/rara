@@ -5,7 +5,7 @@ from typing import List, Optional
 import supabase
 
 url = "https://ufbqvjyfkiqdctvdvzsr.supabase.co"
-key = "your-project-key"
+key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmYnF2anlma2lxZGN0dmR2enNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTIyOTgzMDAsImV4cCI6MjAyNzg3NDMwMH0.zT8tWhhi3xM-7WysTAAW7fUj-iUIMaQHvjnO13eXgCE"
 
 supabase_client = supabase.create_client(url, key)
 
