@@ -1,5 +1,4 @@
 fastapi[all]
 supabase
-uvicorn==0.15.0
-pydantic==1.9.0
+
 
