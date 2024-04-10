@@ -50,3 +50,13 @@ def delete_post(post_id: int):
             del blog_posts[idx]
             return {"message": "Post deleted successfully"}
     raise HTTPException(status_code=404, detail="Post not found")
+
+# Root endpoint handler
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to the Blog Post Management API!"}
+
+# Favicon endpoint handler
+@app.get("/favicon.ico")
+def get_favicon():
+    return {"message": "No favicon available"}
