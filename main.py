@@ -17,13 +17,16 @@ class BlogPost(BaseModel):
     title: str
     content: str
     author: str
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    published: bool
 
 # Endpoint to create a new blog post
 @app.post("/posts/", response_model=BlogPost)
 def create_post(post: BlogPost):
     data = supabase.table("blog_posts").insert(post.dict()).execute()
     if data.data:
-        return data.data
+        return data.data[0]
     else:
         raise HTTPException(status_code=400, detail="Post could not be created")
 
