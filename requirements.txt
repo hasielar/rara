@@ -1,8 +1,5 @@
 fastapi[all]
 supabase
-uvicorn==0.18.3
-pydantic==1.10.2
-redis==4.5.4
-rq==1.12.1
-python-dotenv==1.0.0
-psycopg2-binary==2.9.5
+uvicorn==0.15.0
+pydantic==1.9.0
+
