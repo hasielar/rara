@@ -1,58 +1,155 @@
-from supabase import create_client, Client
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+
 from typing import Optional
+from fastapi import FastAPI, HTTPException, Query
+from pydantic import BaseModel
+from supabase import create_client, Client
 
-# https://docs.render.com/deploy-fastapi
-
-url: str = "https://kbplgyruwwcqzurimbtg.supabase.co"
-key: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImticGxneXJ1d3djcXp1cmltYnRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTE1OTEwMjksImV4cCI6MjAyNzE2NzAyOX0.byS4R7u5YKG_0ud4pUU60mKVM1KIrE7qpTxmYgVNY_M"
-
-supabase: Client = create_client(url, key)
-
+# Initialize FastAPI app
 app = FastAPI()
 
-class ChocolateBar(BaseModel):
-    id: Optional[int] = None
-    company: Optional[str] = None
-    specific_bean_origin_or_bar_name: Optional[str] = None
-    ref: Optional[int] = None
-    review_date: Optional[int] = None
-    cocoa_percent: Optional[str] = None
-    company_location: Optional[str] = None
-    rating: Optional[float] = None
-    bean_type: Optional[str] = None
-    broad_bean_origin: Optional[str] = None
+# Initialize Supabase client
+url = "https://vzviwrmcojxqbwyxthql.supabase.co"
+key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6dml3cm1jb2p4cWJ3eXh0aHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTE0MTk3NDIsImV4cCI6MjAyNjk5NTc0Mn0.9t4oid-YSfytXETr5yl_56j26_5dR3UiVeJLE7MoVt4"
+supabase: Client = create_client(url, key)
 
-@app.post("/items/")
-def create_item(item: ChocolateBar):
-    data = supabase.table("chocolate").insert(item.dict()).execute()
-    if data.data:
-        return data.data
-    else:
-        raise HTTPException(status_code=400, detail="Item could not be created")
+@app.get("/get_all")
+def get_all():
+    return data.to_dict('record')
+
+@app.get("/filter_movies")
+def filter_movies(
+    title: str = None,
+    director: str = None,
+    country: str = None,
+    release_date: int = None,
+    listed_in: str = None,
+    description: str = None,
+    sort_by: str = None,
+    descending: bool = False
+):
+    try:
+        filtered_data = data.copy()
+
+        # Apply filters
+        if title:
+            filtered_data = filtered_data[filtered_data['title'] == title]
+        if director:
+            filtered_data = filtered_data[filtered_data['director'] == director]
+        if country:
+            filtered_data = filtered_data[filtered_data['country'] == country]
+        if listed_in:
+            filtered_data = filtered_data[filtered_data['listed_in'] == listed_in]
+        if listed_in:
+            filtered_data = filtered_data[filtered_data['description'] == listed_in]
+        if release_date:
+            filtered_data = filtered_data[filtered_data['release date'] >= release_date]
+
+        # Apply sorting
+        if sort_by:
+            if sort_by in filtered_data.columns:
+                filtered_data = filtered_data.sort_values(by=sort_by, ascending=not descending)
+            else:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Cannot sort by '{sort_by}'. Invalid column name.")
+
+        return filtered_data.to_dict('records')
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
         
-@app.get("/items/")
-def read_items():
-    data = supabase.table("chocolate").select("*").execute()
-    if data.data:
-        return data.data
-    else:
-        raise HTTPException(status_code=404, detail="Items not found")
-    
-@app.put("/items/{item_id}")
-def update_item(item_id: int, item: ChocolateBar):
-    data = supabase.table("chocolate").update(item.dict()).eq("id", item_id).execute()
-    if data.data:
-        return data.data
-    else:
-        raise HTTPException(status_code=404, detail="Item not found")
+@app.post("/movies/rate/{title}")        
+def rate_movie(title: str, rating: int):
+    if rating < 1 or rating > 5:
+        raise HTTPException(status_code=400, detail="Rating should be between 1 and 5")
 
-@app.delete("/items/{item_id}")
-def delete_item(item_id: int):
-    data = supabase.table("chocolate").delete().eq("id", item_id).execute()
-    if data.data:
-        return {"message": "Item deleted successfully"}
-    else:
-        raise HTTPException(status_code=404, detail="Item not found")
-    
+    # Update the rating in the DataFrame (assuming "rating" is the column name)
+    data.at[title, "rating"] = rating
+
+    return {"message": "Movie rated successfully"}
+
+@app.put("/movies/update/{title}")
+def update_movie(title: str, rating: int):
+    if title not in data.index:
+        raise HTTPException(status_code=404, detail="Movie not found")
+
+    if rating < 1 or rating > 5:
+        raise HTTPException(status_code=400, detail="Rating should be between 1 and 5")
+
+    # Update the rating in the DataFrame
+    data.at[title, "rating"] = rating
+
+    return {"message": "Movie updated successfully"}
+
+class NewMovie(BaseModel):
+    title: str
+    director: str
+    cast: str
+    country: str
+    date_added: str
+    release_year: int
+    rating: str
+    duration: str
+    listed_in: str
+    description: str
+
+@app.post("/movies/add")
+def add_movie(movie: NewMovie):
+    # Convert the incoming data to a dictionary
+    new_movie_dict = movie.dict()
+
+    # Add the new movie to the DataFrame
+    data.loc[len(df)] = new_movie_dict
+
+    return {"message": "Movie added successfully"}
+
+import random
+
+@app.get("/movies/random")
+def random_movie():
+    random_row = data.sample()
+    return random_row.to_dict('records')
+
+@app.get("/movies/similar")
+def similar_movies(title: str, limit: int = 5):
+    movie_info = data[data['title'] == title]
+    if movie_info.empty:
+        raise HTTPException(status_code=404, detail="Movie not found")
+
+    similar_data = data[(data['listed_in'] == movie_info['listed_in'].iloc[0]) & (data['title'] != title)]
+    similar_data = similar_data.head(limit) if len(similar_data) > limit else similar_data
+    return similar_data.to_dict('records')
+
+class Review(BaseModel):
+    title: str
+    rating: int
+    comment: Optional[str] = None
+
+@app.get("/movies/released_between")
+def movies_released_between(start_year: int = Query(..., ge=1900), end_year: int = Query(..., le=9999)):
+    if start_year > end_year:
+        raise HTTPException(status_code=400, detail="Invalid range: start_year cannot be greater than end_year")
+
+    filtered_data = data[(data['release_year'] >= start_year) & (data['release_year'] <= end_year)]
+    return filtered_data.to_dict('records')
+
+@app.post("/movies/review")
+def add_review(review: Review):
+    # Add the review to the respective movie in the DataFrame
+    movie_title = review.title
+    movie_index = data[data['title'] == movie_title].index
+    if movie_index.empty:
+        raise HTTPException(status_code=404, detail="Movie not found")
+    data.at[movie_index[0], "review"] = review.comment
+
+    return {"message": "Review added successfully"}
+
+@app.delete("/delete_movies/{show_id}")
+def delete_movie(movie_id: int):
+    global data
+    try:
+        if movie_id not in df.index:
+            return {"error": "Movie not found"}
+        
+        data = data.drop(index=movie_id)
+
+        return {"message": "Movie deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
