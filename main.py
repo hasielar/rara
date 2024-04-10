@@ -1,64 +1,70 @@
-from supabase import create_client, Client
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 from typing import Optional
+from fastapi import FastAPI, HTTPException
+from datetime import datetime
+from pydantic import BaseModel
+from redis import Redis
+from rq import Queue
+from task_queue import publish_post
+
+app = FastAPI()
+redis_conn = Redis()
+task_queue = Queue(connection=redis_conn)
+
+class Post(BaseModel):
+    id: int
+    title: str
+    content: str
+    created_at: datetime
+    updated_at: datetime
+    posted_at: datetime
+    scheduled_at: Optional[datetime]
 
 # Initialize Supabase client
 url: str = "https://ufbqvjyfkiqdctvdvzsr.supabase.co"
 key: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmYnF2anlma2lxZGN0dmR2enNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTIyOTgzMDAsImV4cCI6MjAyNzg3NDMwMH0.zT8tWhhi3xM-7WysTAAW7fUj-iUIMaQHvjnO13eXgCE"
 supabase: Client = create_client(url, key)
+    
+def create_post(post: Post):
+    if post.scheduled_at:
+        task = task_queue.enqueue(publish_post, post.scheduled_at, post.dict())
+        post.task_id = task.get_id()
 
-# Initialize FastAPI app
-app = FastAPI()
+    data = supabase.table("blog_posts").insert(post.dict(exclude={"id"})).execute()
+    post.id = data.inserted[0]
 
-# Define Pydantic model for BlogPost
-class BlogPost(BaseModel):
-    id: Optional[int] = None
-    title: str
-    content: str
-    author: str
+    return post
 
-# Endpoint to create a new blog post
 @app.post("/posts/")
-def create_post(post: BlogPost):
-    data = supabase.table("blog_posts").insert(post.dict()).execute()
-    if data.data:
-        return data.data
-    else:
-        raise HTTPException(status_code=400, detail="Post could not be created")
+async def create_post_endpoint(post: Post):
+    return create_post(post)
 
-# Endpoint to read all blog posts
-@app.get("/posts/")
-def read_posts():
-    data = supabase.table("blog_posts").select("*").execute()
-    if data.data:
-        return data.data
-    else:
-        raise HTTPException(status_code=404, detail="Posts not found")
-
-# Endpoint to read a specific blog post
 @app.get("/posts/{post_id}")
-def read_post(post_id: int):
-    data = supabase.table("blog_posts").select("*").eq("id", post_id).execute()
-    if data.data:
-        return data.data[0]
-    else:
-        raise HTTPException(status_code=404, detail="Post not found")
+async def get_post_endpoint(post_id: int):
+    post = supabase.table("blog_posts").select("*").eq("id", post_id).execute().data[0]
+    return post
 
-# Endpoint to update a blog post
 @app.put("/posts/{post_id}")
-def update_post(post_id: int, post: BlogPost):
-    data = supabase.table("blog_posts").update(post.dict()).eq("id", post_id).execute()
-    if data.data:
-        return {"message": "Post updated successfully"}
-    else:
-        raise HTTPException(status_code=404, detail="Post not found")
+async def update_post_endpoint(post_id: int, post: Post):
+    post_dict = post.dict()
+    post_dict["updated_at"] = datetime.utcnow()
+    supabase.table("blog_posts").update(post_dict).eq("id", post_id).execute()
+    return {"message": "Post updated successfully"}
 
-# Endpoint to delete a blog post
+@app.get("/posts/")
+async def get_posts_endpoint():
+    posts = supabase.table("blog_posts").select("*").execute().data
+    return posts
+
 @app.delete("/posts/{post_id}")
-def delete_post(post_id: int):
-    data = supabase.table("blog_posts").delete().eq("id", post_id).execute()
-    if data.data:
-        return {"message": "Post deleted successfully"}
-    else:
+async def delete_post_endpoint(post_id: int):
+    post = supabase.table("blog_posts").delete().eq("id", post_id).execute()
+    if post.deleted == 0:
         raise HTTPException(status_code=404, detail="Post not found")
+    return {"message": "Post deleted successfully"}
+
+@app.get("/tasks/{task_id}")
+async def get_task_status(task_id: str):
+    task = task_queue.fetch_job(task_id)
+    if task is None:
+        return {"message": "Task not found"}
+    return {"status": task.get_status(), "result": task.result}
